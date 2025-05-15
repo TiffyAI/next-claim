@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Reward Claim</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #0c0c0c, #1a1a1a);
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 50px 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #4af0f8;
+      text-shadow: 0 0 10px #4af0f8;
+    }
+
+    .message {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #ccc;
+    }
+
+    #claimBtn {
+      padding: 15px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 15px;
+      background: linear-gradient(90deg, gold, #ffd700, gold);
+      color: black;
+      box-shadow: 0 0 20px gold;
+      cursor: pointer;
+      animation: glow 2s infinite alternate;
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px #ffd700; }
+      100% { box-shadow: 0 0 30px #fffacd; }
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #00ffcc;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Reward Claim Successful!</h1>
+  <div class="message">
+    Your treasure unlocked 10 TiffyAI tokens. Click below to receive your reward.
+  </div>
+
+  <button id="claimBtn" onclick="payUserTokens()">Congratulations!</button>
+  <div id="status"></div>
+
+  <script>
+    const tokenAddress = "0x6df97Ec32401e23dEDB2E6cAF3035155890DC237"; // TIFFY token
+    const tokenABI = [{
+      "constant": false,
+      "inputs": [
+        { "name": "recipient", "type": "address" },
+        { "name": "amount", "type": "uint256" }
+      ],
+      "name": "transfer",
+      "outputs": [{ "name": "", "type": "bool" }],
+      "type": "function"
+    }];
+
+    const payoutFrom = "0xF27d595F962ed722F39889B23682B39F712B4Da8";
+
+    async function payUserTokens() {
+      if (!window.ethereum) {
+        alert("MetaMask is not available.");
+        return;
+      }
+
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const user = accounts[0];
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+
+        document.getElementById("status").innerText = "Sending 10 TiffyAI tokens to your wallet...";
+
+        const tx = await contract.methods
+          .transfer(user, web3.utils.toWei("10", "ether"))
+          .send({ from: payoutFrom });
+
+        updateKeyStorage();
+        document.getElementById("status").innerText = "Success! 10 TiffyAI tokens sent to " + user.slice(0, 6) + "...";
+      } catch (err) {
+        document.getElementById("status").innerText = "Error: " + err.message;
+      }
+    }
+
+    function updateKeyStorage() {
+      const usedKeys = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || '0');
+      localStorage.setItem('tiffyBlueKeysSpent', usedKeys + 10);
+
+      const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
+      localStorage.setItem('tiffyBlueKeys', earned - 10);
+    }
+  </script>
+</body>
+</html>
