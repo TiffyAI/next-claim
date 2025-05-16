@@ -72,7 +72,6 @@
       50% { transform: scale(1.05); }
       100% { transform: scale(1); }
     }
-
   </style>
 </head>
 <body>
@@ -83,6 +82,8 @@
   <div id="blueKeyCounter">You've claimed 0/10 Blue Keys to unlock a treasure chest<br>
     <img src="Keys.png" alt="Blue Key" />
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 
   <script>
     const contractAddress = "0x6df97Ec32401e23dEDB2E6cAF3035155890DC237";
@@ -104,11 +105,14 @@
         return window.open(url, '_blank');
       }
 
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
       web3 = new Web3(window.ethereum);
+      await ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await web3.eth.getAccounts();
+      user = accounts[0];
+      contract = new web3.eth.Contract(claimABI, contractAddress);
 
       try {
-        await window.ethereum.request({
+        await ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId: '0x61',
@@ -119,12 +123,8 @@
           }]
         });
       } catch (e) {
-        console.warn("Chain may already be added");
+        console.warn("Chain already added");
       }
-
-      const accounts = await web3.eth.getAccounts();
-      user = accounts[0];
-      contract = new web3.eth.Contract(claimABI, contractAddress);
     }
 
     async function claimToken() {
@@ -133,11 +133,9 @@
       try {
         await contract.methods.claim().send({ from: user });
 
-        // Show token zoom
         animateImage("https://tiffyai.github.io/On-boarding-/TiffyAI-Token.png");
         setTimeout(() => animateImage("Keys.png"), 1400);
 
-        // Add 1 key to local storage
         let keys = parseInt(localStorage.getItem("tiffyBlueKeys") || "0");
         keys++;
         localStorage.setItem("tiffyBlueKeys", keys);
@@ -146,7 +144,6 @@
         if (keys >= 10) {
           setTimeout(() => window.location.href = "https://tiffyai.github.io/treasure/", 3000);
         }
-
       } catch (err) {
         alert("Claim failed: " + err.message);
       }
