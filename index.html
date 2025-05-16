@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TIFFYAI Claim Portal</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      background: linear-gradient(135deg, #000000, #010a2a);
+      position: relative;
+      flex-direction: column;
+    }
+    #claimButton {
+      z-index: 10;
+      font-size: 28px;
+      font-weight: bold;
+      padding: 20px 50px;
+      background: linear-gradient(90deg, #FFD700, #C0C0C0, #FFD700);
+      color: #000;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 0 20px #ffd70099;
+      animation: slideIn 2s ease-out, shimmer 3s infinite linear;
+      margin-top: 20px;
+    }
+    #claimButton:active {
+      box-shadow: 0 0 30px #FFD700, inset 0 0 10px #FFFACD;
+      transform: scale(0.97);
+    }
+    #cooldownTimer {
+      font-size: 22px;
+      color: #FFD700;
+      text-shadow: 0 0 10px #FFD700;
+      margin-top: 15px;
+    }
+    #blueKeyCounter {
+      margin-top: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      color: #00ffff;
+      text-shadow: 0 0 5px #00ffff, 0 0 10px #00aaff;
+    }
+    #blueKeyCounter img {
+      display: block;
+      margin: 10px auto 0;
+      width: 80px;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(100px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes shimmer {
+      0%, 100% { box-shadow: 0 0 10px #FFD700; }
+      50% { box-shadow: 0 0 30px #FFFACD; }
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <button id="claimButton">CLAIM</button>
+  <div id="cooldownTimer">Next claim in: --h --m --s</div>
+  <div id="blueKeyCounter">
+    You've claimed 0/10 Blue Keys to unlock a treasure chest
+    <img src="Keys.png" alt="Blue Key" />
+  </div>
+
+  <script>
+    const contractAddress = "0x6df97Ec32401e23dEDB2E6cAF3035155890DC237";
+    const claimABI = [
+      { "inputs": [], "name": "claim", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+      { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastClaimed", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view" }
+    ];
+
+    let userAddress = "";
+    let contract;
+
+    async function connectMetaMask() {
+      if (typeof window.ethereum === 'undefined') {
+        const link = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+          ? 'https://metamask.app.link/dapp/tiffyai.github.io/next-claim/'
+          : 'https://metamask.io/download/';
+        window.open(link, '_blank');
+        return null;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        return accounts[0];
+      } catch (err) {
+        alert('Failed to connect wallet: ' + err.message);
+        return null;
+      }
+    }
+
+    async function initContract() {
+      const web3 = new Web3(window.ethereum);
+      contract = new web3.eth.Contract(claimABI, contractAddress);
+    }
+
+    async function updateCooldown() {
+      if (!contract || !userAddress) return;
+      try {
+        const last = await contract.methods.lastClaimed(userAddress).call();
+        const next = parseInt(last) + 86400;
+        const now = Math.floor(Date.now() / 1000);
+        const rem = next - now;
+
+        const h = Math.floor(rem / 3600);
+        const m = Math.floor((rem % 3600) / 60);
+        const s = rem % 60;
+        document.getElementById("cooldownTimer").innerText = rem <= 0
+          ? "Claim Available Now!"
+          : `Next claim in: ${h}h ${m}m ${s}s`;
+      } catch {}
+    }
+
+    async function claimToken() {
+      if (!window.ethereum) return;
+
+      const web3 = new Web3(window.ethereum);
+      const netId = await web3.eth.net.getId();
+      if (netId !== 97) {
+        alert("Please switch to BNB Testnet.");
+        return;
+      }
+
+      try {
+        await contract.methods.claim().send({ from: userAddress });
+        alert("1 TIFFYAI Token Claimed Successfully!");
+        let keys = parseInt(localStorage.getItem("tiffyBlueKeys") || "0");
+        keys++;
+        localStorage.setItem("tiffyBlueKeys", keys);
+        updateKeyCount();
+      } catch (err) {
+        alert("Claim failed: " + (err.message || "Check wallet and network"));
+      }
+    }
+
+    function updateKeyCount() {
+      const keys = parseInt(localStorage.getItem("tiffyBlueKeys") || "0");
+      const counter = document.getElementById("blueKeyCounter");
+      counter.innerHTML = `You've claimed ${keys}/10 Blue Keys to unlock a treasure chest
+        <img src="Keys.png" alt="Blue Key" />`;
+    }
+
+    document.getElementById("claimButton").addEventListener("click", async () => {
+      userAddress = await connectMetaMask();
+      if (!userAddress) return;
+      await initContract();
+      await claimToken();
+    });
+
+    setInterval(updateCooldown, 1000);
+    updateKeyCount();
+  </script>
+
+  <!-- Web3.js -->
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+</body>
+</html>
