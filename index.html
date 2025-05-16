@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TiffyAI Wallet Setup</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: url('Onboard.jpg') no-repeat center center fixed;
+      background-size: cover;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+```
+.wallet-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  padding: 25px;
+  border-radius: 15px;
+  border: 1px solid #4af0f8;
+  box-shadow: 0 0 15px #4af0f8;
+  text-align: center;
+}
+
+.wallet-panel button {
+  padding: 12px 25px;
+  margin-bottom: 15px;
+  border: none;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  color: white;
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#connectWalletBtn {
+  background: linear-gradient(90deg, #9055ff, #4af0f8);
+}
+
+#addTestnetBtn {
+  background: linear-gradient(90deg, #4af0f8, #9055ff);
+}
+
+#importTokenBtn {
+  background: linear-gradient(90deg, #00ffc3, #9055ff);
+}
+
+#installMetaMaskBtn {
+  background: linear-gradient(90deg, #ff4aa2, #9055ff);
+}
+
+#walletAddress {
+  margin-top: 10px;
+  color: #4af0f8;
+  font-family: monospace;
+}
+
+/* --- Tiffy Assistant --- */
+#tiffyAssistant {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 120px;
+  z-index: 999;
+  animation: pulse 2.5s infinite;
+  cursor: pointer;
+}
+
+#tiffyAssistant img {
+  width: 100%;
+  border-radius: 50%;
+  box-shadow: 0 0 20px #4af0f8;
+}
+
+#tiffySpeech {
+  position: absolute;
+  bottom: 140px;
+  right: 10px;
+  background: rgba(12, 12, 12, 0.95);
+  border: 1px solid #4af0f8;
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  max-width: 240px;
+  display: none;
+  box-shadow: 0 0 10px #9055ff;
+}
+
+#tiffySpeech button {
+  margin: 8px 4px 0;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #9055ff, #4af0f8);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 0 15px #9055ff; }
+  50% { transform: scale(1.05); box-shadow: 0 0 25px #4af0f8; }
+  100% { transform: scale(1); box-shadow: 0 0 15px #9055ff; }
+}
+```
+
+  </style>
+</head>
+<body>
+
+  <!-- Wallet Setup Panel -->
+
+  <div class="wallet-panel">
+    <button id="connectWalletBtn">Connect Wallet</button>
+    <button id="addTestnetBtn">Add BNB Testnet</button>
+    <button id="importTokenBtn">Show My TiffyAI Token</button>
+    <button id="installMetaMaskBtn" style="display:none;">Activate or Install MetaMask</button>
+    <div id="walletAddress"></div>
+  </div>
+
+  <!-- Tiffy Mascot -->
+
+  <div id="tiffyAssistant" onclick="toggleSpeech()">
+    <img src="TiffyAI.jpg" alt="Tiffy Assistant" />
+    <div id="tiffySpeech">
+      <p id="tiffyText">Hey,. Need help setting up your wallet?</p>
+      <div id="tiffyOptions">
+        <button onclick="tiffyReplyYes()">Yes, help me</button>
+        <button onclick="tiffyReplyNo()">No, I’m good</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const connectBtn = document.getElementById('connectWalletBtn');
+    const addTestnetBtn = document.getElementById('addTestnetBtn');
+    const importTokenBtn = document.getElementById('importTokenBtn');
+    const installMetaMaskBtn = document.getElementById('installMetaMaskBtn');
+    const walletAddressDisplay = document.getElementById('walletAddress');
+
+    const tiffyToken = {
+      address: '0x6df97Ec32401e23dEDB2E6cAF3035155890DC237',
+      symbol: 'TIFFY',
+      decimals: 18,
+      image: 'https://tiffyai.github.io/On-boarding-/TiffyAI-Token.png'
+    };
+
+    function isMobile() {
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+
+    function openMetaMaskInstall() {
+      const link = isMobile()
+        ? 'https://metamask.app.link/dapp/tiffyai.github.io/On-boarding-/'
+        : 'https://metamask.io/download/';
+      window.open(link, '_blank');
+    }
+
+    async function connectWallet() {
+      if (typeof window.ethereum === 'undefined') {
+        installMetaMaskBtn.style.display = 'inline-block';
+        return;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const account = accounts[0];
+        walletAddressDisplay.innerText = 'Connected: ' + account.slice(0, 6) + '...' + account.slice(-4);
+      } catch (err) {
+        alert('Failed to connect wallet: ' + (err.message || err));
+      }
+    }
+
+    async function addBNBTestnet() {
+      if (typeof window.ethereum === 'undefined') {
+        installMetaMaskBtn.style.display = 'inline-block';
+        return;
+      }
+
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x61',
+            chainName: 'BNB Smart Chain Testnet',
+            nativeCurrency: {
+              name: 'BNB',
+              symbol: 'tBNB',
+              decimals: 18
+            },
+            rpcUrls: ['https://bsc-testnet.publicnode.com'],
+            blockExplorerUrls: ['https://testnet.bscscan.com']
+          }]
+        });
+        alert('BNB Testnet added successfully!');
+      } catch (err) {
+        alert('Error adding BNB Testnet: ' + (err.message || err));
+      }
+    }
+
+    async function importTiffyToken() {
+      if (!window.ethereum) {
+        alert('MetaMask is not installed');
+        return;
+      }
+
+      try {
+        const wasAdded = await window.ethereum.request({
+          method: 'wallet_watchAsset',
+          params: {
+            type: 'ERC20',
+            options: {
+              address: tiffyToken.address,
+              symbol: tiffyToken.symbol,
+              decimals: tiffyToken.decimals,
+              image: tiffyToken.image
+            }
+          }
+        });
+
+        if (wasAdded) {
+          alert('TiffyAI token added to your wallet!');
+        } else {
+          alert('TiffyAI token was not added.');
+        }
+      } catch (err) {
+        alert('Error adding token: ' + (err.message || err));
+      }
+    }
+
+    connectBtn.onclick = connectWallet;
+    addTestnetBtn.onclick = addBNBTestnet;
+    importTokenBtn.onclick = importTiffyToken;
+    installMetaMaskBtn.onclick = openMetaMaskInstall;
+
+    window.addEventListener('load', () => {
+      let retries = 0;
+
+      function checkEthereum() {
+        if (typeof window.ethereum !== 'undefined') {
+          connectBtn.style.display = 'inline-block';
+          addTestnetBtn.style.display = 'inline-block';
+          importTokenBtn.style.display = 'inline-block';
+          installMetaMaskBtn.style.display = 'none';
+        } else {
+          retries++;
+          if (retries < 10) {
+            setTimeout(checkEthereum, 200);
+          } else {
+            installMetaMaskBtn.style.display = 'inline-block';
+          }
+        }
+      }
+
+      checkEthereum();
+    });
+
+    function toggleSpeech() {
+      const bubble = document.getElementById('tiffySpeech');
+      bubble.style.display = bubble.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function tiffyReplyYes() {
+      document.getElementById('tiffyText').innerText = "Awesome! First, tap 'Connect Wallet' above.";
+      document.getElementById('tiffyOptions').style.display = 'none';
+      document.querySelector('.wallet-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function tiffyReplyNo() {
+      document.getElementById('tiffyText').innerText = "Alright! If you need me, just tap again.";
+      document.getElementById('tiffyOptions').style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>
