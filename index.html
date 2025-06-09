@@ -63,7 +63,7 @@
   <div id="status"></div>
 
   <script>
-    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // your backend
+    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // Backend secured reward sender
 
     async function payUserTokens() {
       const status = document.getElementById("status");
@@ -85,7 +85,13 @@
           body: JSON.stringify({ wallet: user, amount: 10 })
         });
 
-        const result = await res.json();
+        let result;
+        try {
+          result = await res.json(); // Try parsing JSON
+        } catch (e) {
+          const text = await res.text(); // Fall back to plain text
+          throw new Error(text);
+        }
 
         if (res.ok && result.success) {
           updateKeyStorage();
@@ -95,10 +101,10 @@
         }
 
       } catch (err) {
-        if (err.message.includes("insufficient funds")) {
+        if (err.message.toLowerCase().includes("insufficient funds")) {
           status.innerText = "❌ You don’t have enough BNB for gas. Please top up.";
         } else {
-          status.innerText = "❌ Error: " + err.message;
+          status.innerText = "❌ " + err.message;
         }
       }
     }
