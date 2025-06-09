@@ -63,19 +63,21 @@
   <div id="status"></div>
 
   <script>
-    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // uses secure reward wallet from env on server
+    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // your backend
 
     async function payUserTokens() {
+      const status = document.getElementById("status");
+
       if (!window.ethereum) {
-        alert("MetaMask is not available.");
+        alert("❌ MetaMask is not available.");
         return;
       }
 
       try {
-        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         const user = accounts[0];
 
-        document.getElementById("status").innerText = "Requesting 10 TiffyAI tokens from backend...";
+        status.innerText = "⏳ Sending reward from TiffyAI server...";
 
         const res = await fetch(BACKEND_API, {
           method: "POST",
@@ -87,14 +89,17 @@
 
         if (res.ok && result.success) {
           updateKeyStorage();
-          document.getElementById("status").innerText =
-            "Success! 10 TiffyAI tokens sent to " + user.slice(0, 6) + "...";
+          status.innerText = `✅ 10 TiffyAI tokens sent to ${user.slice(0, 6)}...`;
         } else {
-          document.getElementById("status").innerText =
-            "Server error: " + (result.message || "Try again later.");
+          status.innerText = "⚠️ Server error: " + (result.message || "Try again later.");
         }
+
       } catch (err) {
-        document.getElementById("status").innerText = "Error: " + err.message;
+        if (err.message.includes("insufficient funds")) {
+          status.innerText = "❌ You don’t have enough BNB for gas. Please top up.";
+        } else {
+          status.innerText = "❌ Error: " + err.message;
+        }
       }
     }
 
