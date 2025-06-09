@@ -63,21 +63,19 @@
   <div id="status"></div>
 
   <script>
-    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // Backend reward server
+    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward";
 
     async function payUserTokens() {
-      const status = document.getElementById("status");
-
       if (!window.ethereum) {
-        alert("❌ MetaMask is not available.");
+        alert("MetaMask is not available.");
         return;
       }
 
       try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
         const user = accounts[0];
 
-        status.innerText = "⏳ Requesting 10 TIFFY tokens from TiffyAI server...";
+        document.getElementById("status").innerText = "Requesting 10 TiffyAI tokens from backend...";
 
         const res = await fetch(BACKEND_API, {
           method: "POST",
@@ -85,28 +83,27 @@
           body: JSON.stringify({ wallet: user, amount: 10 })
         });
 
-        const responseText = await res.text(); // only read once
-        let result = {};
-
+        let result;
         try {
-          result = JSON.parse(responseText); // Try parsing JSON
-        } catch {
-          throw new Error(responseText); // If not JSON, show raw error
+          result = await res.json();
+        } catch (e) {
+          throw new Error("Server returned invalid response. Please try again.");
         }
 
         if (res.ok && result.success) {
           updateKeyStorage();
-          status.innerText = `✅ 10 TiffyAI tokens sent to ${user.slice(0, 6)}...`;
+          document.getElementById("status").innerText =
+            "✅ Success! 10 TiffyAI tokens sent to " + user.slice(0, 6) + "...";
         } else {
-          status.innerText = "⚠️ Server error: " + (result.message || "Unexpected backend response.");
+          throw new Error(result.message || "Reward transfer failed.");
         }
 
       } catch (err) {
-        if (err.message.toLowerCase().includes("insufficient funds")) {
-          status.innerText = "❌ Your BNB is too low for gas. Please top up.";
-        } else {
-          status.innerText = "❌ " + err.message;
-        }
+        console.error("Reward error:", err);
+        const message = err.message.includes("insufficient")
+          ? "⚠️ Your BNB balance is too low for gas. Please top up and try again."
+          : "❌ " + err.message;
+        document.getElementById("status").innerText = message;
       }
     }
 
@@ -115,7 +112,7 @@
       localStorage.setItem('tiffyBlueKeysSpent', usedKeys + 10);
 
       const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
-      localStorage.setItem('tiffyBlueKeys', earned - 10);
+      localStorage.setItem('tiffyBlueKeys', Math.max(0, earned - 10));
     }
   </script>
 </body>
