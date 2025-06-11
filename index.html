@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TiffyAI Reward Claim</title>
+  <title>TiffyAI BSC Reward Claim</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <style>
     body {
@@ -56,71 +56,67 @@
 
   <h1>Reward Claim Successful!</h1>
   <div class="message">
-    Your treasure unlocked <strong>10 TiffyAI</strong> tokens.<br />
-    Send 0.001 BNB to unlock your reward.
+    Your treasure unlocked 10 TiffyAI tokens. Click below to receive your reward.
   </div>
 
-  <button id="claimBtn" onclick="sendFeeAndClaim()">Congratulations!</button>
+  <button id="claimBtn" onclick="payUserTokens()">Congratulations!</button>
   <div id="status"></div>
 
   <script>
-    const CONTRACT_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // replace with actual
-    const REWARD_WALLET = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // reward wallet
-    const CLAIM_FEE = Web3.utils.toWei("0.001", "ether"); // 0.001 BNB
+    const tokenAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // BSC TIFFY token
+    const payoutFrom    = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // Exempted reward wallet
 
-    const ABI = [ // simplified ABI — extend this to match your actual contract
-      {
-        "constant": false,
-        "inputs": [{ "name": "recipient", "type": "address" }],
-        "name": "claimReward",
-        "outputs": [],
-        "type": "function"
-      }
-    ];
+    const tokenABI = [{
+      constant: false,
+      inputs: [
+        { name: "recipient", type: "address" },
+        { name: "amount",    type: "uint256" }
+      ],
+      name: "transfer",
+      outputs: [{ name: "", type: "bool" }],
+      type: "function"
+    }];
 
-    async function sendFeeAndClaim() {
-      if (!window.ethereum) {
-        alert("MetaMask not available.");
+    async function payUserTokens() {
+      if (typeof window.ethereum === 'undefined') {
+        alert("MetaMask is not available.");
         return;
       }
 
       const web3 = new Web3(window.ethereum);
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        const user = accounts[0];
-        const contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
 
-        document.getElementById("status").innerText = "Sending fee and requesting reward...";
-
-        // Step 1: User sends fee to reward wallet
-        await web3.eth.sendTransaction({
-          from: user,
-          to: REWARD_WALLET,
-          value: CLAIM_FEE
-        });
-
-        // Step 2: Contract sends reward tokens to user (assumes REWARD_WALLET can do this or contract self-calls)
-        await contract.methods.claimReward(user).send({ from: user });
-
-        updateKeyStorage();
-
-        document.getElementById("status").innerText =
-          "✅ 10 TiffyAI sent to " + user.slice(0, 6) + "...";
-
-      } catch (err) {
-        console.error(err);
-        const message = err.message.includes("insufficient")
-          ? "⚠️ Not enough BNB to cover the fee."
-          : "❌ " + err.message;
-        document.getElementById("status").innerText = message;
+      // 1) Ensure BSC Mainnet
+      const chainId = await web3.eth.getChainId();
+      if (chainId !== 56) {
+        alert("Please switch MetaMask to BSC Smart Chain (chain ID 56) and try again.");
+        return;
       }
-    }
 
-    function updateKeyStorage() {
-      const usedKeys = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || '0');
-      localStorage.setItem('tiffyBlueKeysSpent', usedKeys + 10);
-      const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
-      localStorage.setItem('tiffyBlueKeys', Math.max(0, earned - 10));
+      try {
+        // 2) Connect and get user
+        const [user] = await ethereum.request({ method: "eth_requestAccounts" });
+
+        // 3) Build contract instance
+        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+
+        // 4) Send the transfer FROM your exempted wallet
+        document.getElementById("status").innerText = "Sending 10 TiffyAI tokens to your wallet…";
+
+        await contract.methods
+          .transfer(user, web3.utils.toWei("10", "ether"))
+          .send({ from: payoutFrom });
+
+        // 5) Update localStorage and UI
+        const used = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || "0", 10) + 10;
+        localStorage.setItem('tiffyBlueKeysSpent', used);
+        const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || "0", 10) - 10;
+        localStorage.setItem('tiffyBlueKeys', earned);
+
+        document.getElementById("status").innerText = 
+          `✅ Success! 10 TiffyAI sent to ${user.slice(0,6)}…`;
+      } catch (err) {
+        document.getElementById("status").innerText = "Error: " + err.message;
+      }
     }
   </script>
 </body>
