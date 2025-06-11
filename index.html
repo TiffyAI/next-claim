@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TiffyAI BSC Reward Claim</title>
+  <title>TiffyAI Reward Claim</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <style>
     body {
@@ -63,60 +63,49 @@
   <div id="status"></div>
 
   <script>
-    const tokenAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // BSC TIFFY token
-    const payoutFrom    = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // Exempted reward wallet
-
-    const tokenABI = [{
-      constant: false,
-      inputs: [
-        { name: "recipient", type: "address" },
-        { name: "amount",    type: "uint256" }
-      ],
-      name: "transfer",
-      outputs: [{ name: "", type: "bool" }],
-      type: "function"
-    }];
+    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward"; // your working backend
 
     async function payUserTokens() {
-      if (typeof window.ethereum === 'undefined') {
+      if (!window.ethereum) {
         alert("MetaMask is not available.");
         return;
       }
 
-      const web3 = new Web3(window.ethereum);
-
-      // 1) Ensure BSC Mainnet
-      const chainId = await web3.eth.getChainId();
-      if (chainId !== 56) {
-        alert("Please switch MetaMask to BSC Smart Chain (chain ID 56) and try again.");
-        return;
-      }
-
       try {
-        // 2) Connect and get user
-        const [user] = await ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const user = accounts[0];
 
-        // 3) Build contract instance
-        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+        document.getElementById("status").innerText = "⏳ Sending 10 TiffyAI tokens to your wallet...";
 
-        // 4) Send the transfer FROM your exempted wallet
-        document.getElementById("status").innerText = "Sending 10 TiffyAI tokens to your wallet…";
+        const res = await fetch(BACKEND_API, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            wallet: user,
+            amount: 10
+          })
+        });
 
-        await contract.methods
-          .transfer(user, web3.utils.toWei("10", "ether"))
-          .send({ from: payoutFrom });
-
-        // 5) Update localStorage and UI
-        const used = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || "0", 10) + 10;
-        localStorage.setItem('tiffyBlueKeysSpent', used);
-        const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || "0", 10) - 10;
-        localStorage.setItem('tiffyBlueKeys', earned);
-
-        document.getElementById("status").innerText = 
-          `✅ Success! 10 TiffyAI sent to ${user.slice(0,6)}…`;
+        const responseText = await res.text();
+        if (res.ok && responseText.toLowerCase().includes("prize")) {
+          updateKeyStorage();
+          document.getElementById("status").innerText = `✅ Success! 10 TiffyAI tokens sent to ${user.slice(0, 6)}...`;
+        } else {
+          throw new Error("❌ Server responded unexpectedly: " + responseText);
+        }
       } catch (err) {
-        document.getElementById("status").innerText = "Error: " + err.message;
+        document.getElementById("status").innerText = "❌ Error: " + err.message;
       }
+    }
+
+    function updateKeyStorage() {
+      const used = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || '0');
+      localStorage.setItem('tiffyBlueKeysSpent', used + 10);
+
+      const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
+      localStorage.setItem('tiffyBlueKeys', earned - 10);
     }
   </script>
 </body>
