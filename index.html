@@ -56,52 +56,61 @@
 
   <h1>Reward Claim Successful!</h1>
   <div class="message">
-    Your treasure unlocked 10 TiffyAI tokens. Click below to receive your reward.
+    Your treasure unlocked <strong>10 TiffyAI</strong> tokens.<br />
+    Send 0.001 BNB to unlock your reward.
   </div>
 
-  <button id="claimBtn" onclick="payUserTokens()">Congratulations!</button>
+  <button id="claimBtn" onclick="sendFeeAndClaim()">Congratulations!</button>
   <div id="status"></div>
 
   <script>
-    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward";
+    const CONTRACT_ADDRESS = "0xYOUR_CONTRACT_ADDRESS_HERE"; // replace with actual
+    const REWARD_WALLET = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // reward wallet
+    const CLAIM_FEE = Web3.utils.toWei("0.001", "ether"); // 0.001 BNB
 
-    async function payUserTokens() {
+    const ABI = [ // simplified ABI — extend this to match your actual contract
+      {
+        "constant": false,
+        "inputs": [{ "name": "recipient", "type": "address" }],
+        "name": "claimReward",
+        "outputs": [],
+        "type": "function"
+      }
+    ];
+
+    async function sendFeeAndClaim() {
       if (!window.ethereum) {
-        alert("MetaMask is not available.");
+        alert("MetaMask not available.");
         return;
       }
 
+      const web3 = new Web3(window.ethereum);
       try {
-        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         const user = accounts[0];
+        const contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
 
-        document.getElementById("status").innerText = "Requesting 10 TiffyAI tokens from backend...";
+        document.getElementById("status").innerText = "Sending fee and requesting reward...";
 
-        const res = await fetch(BACKEND_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ wallet: user, amount: 10 })
+        // Step 1: User sends fee to reward wallet
+        await web3.eth.sendTransaction({
+          from: user,
+          to: REWARD_WALLET,
+          value: CLAIM_FEE
         });
 
-        let result;
-        try {
-          result = await res.json();
-        } catch (e) {
-          throw new Error("Server returned invalid response. Please try again.");
-        }
+        // Step 2: Contract sends reward tokens to user (assumes REWARD_WALLET can do this or contract self-calls)
+        await contract.methods.claimReward(user).send({ from: user });
 
-        if (res.ok && result.success) {
-          updateKeyStorage();
-          document.getElementById("status").innerText =
-            "✅ Success! 10 TiffyAI tokens sent to " + user.slice(0, 6) + "...";
-        } else {
-          throw new Error(result.message || "Reward transfer failed.");
-        }
+        updateKeyStorage();
+
+        document.getElementById("status").innerText =
+          "✅ 10 TiffyAI sent to " + user.slice(0, 6) + "...";
 
       } catch (err) {
-        console.error("Reward error:", err);
+        console.error(err);
         const message = err.message.includes("insufficient")
-          ? "⚠️ Your BNB balance is too low for gas. Please top up and try again."
+          ? "⚠️ Not enough BNB to cover the fee."
           : "❌ " + err.message;
         document.getElementById("status").innerText = message;
       }
@@ -110,7 +119,6 @@
     function updateKeyStorage() {
       const usedKeys = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || '0');
       localStorage.setItem('tiffyBlueKeysSpent', usedKeys + 10);
-
       const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
       localStorage.setItem('tiffyBlueKeys', Math.max(0, earned - 10));
     }
