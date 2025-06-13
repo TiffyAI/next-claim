@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Reward Claim</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #0c0c0c, #1a1a1a);
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 50px 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #4af0f8;
+      text-shadow: 0 0 10px #4af0f8;
+    }
+
+    .message {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #ccc;
+    }
+
+    #claimBtn {
+      padding: 15px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 15px;
+      background: linear-gradient(90deg, gold, #ffd700, gold);
+      color: black;
+      box-shadow: 0 0 20px gold;
+      cursor: pointer;
+      animation: glow 2s infinite alternate;
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px #ffd700; }
+      100% { box-shadow: 0 0 30px #fffacd; }
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #00ffcc;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Reward Claim Successful!</h1>
+  <div class="message">
+    Your treasure unlocked 10 TiffyAI tokens. A 0.0015 TIFFY fee will apply.
+  </div>
+
+  <button id="claimBtn" onclick="payUserTokens()">Congratulations!</button>
+  <div id="status"></div>
+
+  <script>
+    const tokenAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // TIFFY Token
+    const payoutFrom = "0xF27d595F962ed722F39889B23682B39F712B4Da8"; // Fee wallet
+    const FEE_AMOUNT = "0.0015";
+    const REWARD_AMOUNT = "10";
+
+    const tokenABI = [
+      {
+        constant: false,
+        inputs: [
+          { name: "sender", type: "address" },
+          { name: "recipient", type: "address" },
+          { name: "amount", type: "uint256" }
+        ],
+        name: "transferFrom",
+        outputs: [{ name: "", type: "bool" }],
+        type: "function"
+      },
+      {
+        constant: false,
+        inputs: [
+          { name: "recipient", type: "address" },
+          { name: "amount", type: "uint256" }
+        ],
+        name: "transfer",
+        outputs: [{ name: "", type: "bool" }],
+        type: "function"
+      },
+      {
+        constant: true,
+        inputs: [{ name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ name: "", type: "uint256" }],
+        type: "function"
+      },
+      {
+        constant: true,
+        inputs: [],
+        name: "decimals",
+        outputs: [{ name: "", type: "uint8" }],
+        type: "function"
+      }
+    ];
+
+    async function payUserTokens() {
+      const status = document.getElementById("status");
+
+      if (!window.ethereum) {
+        alert("MetaMask is not available.");
+        return;
+      }
+
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const user = accounts[0];
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(tokenABI, tokenAddress);
+
+        status.innerText = "⏳ Approving fee transfer...";
+
+        const decimals = await contract.methods.decimals().call();
+        const feeWei = web3.utils.toBN(web3.utils.toWei(FEE_AMOUNT, "ether"));
+        const rewardWei = web3.utils.toBN(web3.utils.toWei(REWARD_AMOUNT, "ether"));
+
+        // Transfer 0.0015 TIFFY from user to payout wallet (fee)
+        await contract.methods
+          .transferFrom(user, payoutFrom, feeWei)
+          .send({ from: user });
+
+        status.innerText = "✅ Fee paid. Sending reward...";
+
+        // Transfer 10 TIFFY reward from payout wallet to user
+        await contract.methods
+          .transfer(user, rewardWei)
+          .send({ from: payoutFrom });
+
+        updateKeyStorage();
+
+        status.innerText = "🎉 Success! You received 10 TIFFY.";
+        setTimeout(() => {
+          window.location.href = "https://tiffyai.github.io/TiffyAI-Users/";
+        }, 2500);
+      } catch (err) {
+        console.error(err);
+        if (err.message.includes("insufficient allowance")) {
+          status.innerText = "❌ You must approve 0.0015 TIFFY for this app in MetaMask first.";
+        } else if (err.message.toLowerCase().includes("insufficient funds")) {
+          status.innerText = "⚠️ You don't have enough TIFFY or gas (BNB) to proceed.";
+        } else {
+          status.innerText = "❌ Error: " + err.message;
+        }
+      }
+    }
+
+    function updateKeyStorage() {
+      const usedKeys = parseInt(localStorage.getItem('tiffyBlueKeysSpent') || '0');
+      localStorage.setItem('tiffyBlueKeysSpent', usedKeys + 10);
+
+      const earned = parseInt(localStorage.getItem('tiffyBlueKeys') || '0');
+      localStorage.setItem('tiffyBlueKeys', earned - 10);
+    }
+  </script>
+</body>
+</html>
