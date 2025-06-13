@@ -15,20 +15,17 @@
       text-align: center;
       padding: 50px 20px;
     }
-
     h1 {
       font-size: 28px;
       margin-bottom: 20px;
       color: #4af0f8;
       text-shadow: 0 0 10px #4af0f8;
     }
-
     .message {
       font-size: 18px;
       margin-bottom: 30px;
       color: #ccc;
     }
-
     #claimBtn {
       padding: 15px 40px;
       font-size: 20px;
@@ -41,12 +38,10 @@
       cursor: pointer;
       animation: glow 2s infinite alternate;
     }
-
     @keyframes glow {
       0% { box-shadow: 0 0 10px #ffd700; }
       100% { box-shadow: 0 0 30px #fffacd; }
     }
-
     #status {
       margin-top: 20px;
       font-size: 16px;
@@ -70,64 +65,66 @@
       { "inputs": [], "name": "claim", "outputs": [], "stateMutability": "payable", "type": "function" },
       { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "lastClaimed", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
     ];
-
     const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward";
-    const FIXED_BNB_FEE = "0.0015"; // Must match on-chain fee
+    const FIXED_BNB_FEE = "0.0015";
 
     async function handleClaim() {
       const status = document.getElementById("status");
-      if (!window.ethereum) {
-        return alert("MetaMask not found.");
-      }
+      if (!window.ethereum) return alert("MetaMask not found.");
 
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const user = accounts[0];
         const web3 = new Web3(window.ethereum);
         const contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
+        const bnbWei = web3.utils.toWei(FIXED_BNB_FEE, "ether");
 
-        status.innerText = "⏳ Checking cooldown status...";
+        status.innerText = "Checking claim cooldown...";
         const lastClaimed = await contract.methods.lastClaimed(user).call();
         const now = Math.floor(Date.now() / 1000);
         const onCooldown = (parseInt(lastClaimed) + 86400) > now;
 
-        const bnbWei = web3.utils.toWei(FIXED_BNB_FEE, "ether");
+        let tokensToSend;
 
-        status.innerText = "⚙️ Sending transaction with BNB fee...";
-        await contract.methods.claim().send({
-          from: user,
-          value: bnbWei
-        });
-
-        status.innerText = "🎁 Claim successful! Sending token reward...";
-
-        const tokensToSend = onCooldown ? 10 : 9;
-
-        const backendRes = await fetch(BACKEND_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ wallet: user, amount: tokensToSend })
-        });
-
-        const result = await backendRes.text();
-        if (backendRes.ok && result.includes("Prize sent")) {
-          resetBlueKeys();
-          status.innerText = "✅ 10 TIFFY sent to " + user.slice(0, 6) + "... Redirecting...";
-          setTimeout(() => {
-            window.location.href = "https://tiffyai.github.io/TiffyAI-Users/";
-          }, 3000);
+        if (onCooldown) {
+          // Cooldown active: send all 10 via backend
+          tokensToSend = 10;
+          status.innerText = "Already claimed today – sending full 10 TIFFY from backend...";
         } else {
-          status.innerText = "⚠️ Token reward failed: " + result;
+          // Not on cooldown: call claim() with fee, backend sends 9
+          tokensToSend = 9;
+          status.innerText = "Calling contract claim()...";
+          await contract.methods.claim().send({ from: user, value: bnbWei });
         }
+
+        // Send TIFFY from backend
+        await sendBackendReward(user, tokensToSend);
+        resetKeys();
+        status.innerText = "✅ Reward complete! Redirecting...";
+        setTimeout(() => {
+          window.location.href = "https://tiffyai.github.io/TiffyAI-Users/";
+        }, 3000);
 
       } catch (err) {
         if (err.message.includes("insufficient funds")) {
-          status.innerText = "⚠️ Your BNB is too low for gas. Please top up.";
+          status.innerText = "⚠️ Not enough BNB to cover network fee.";
         } else if (err.message.includes("execution reverted")) {
-          status.innerText = "⛔ Claim rejected: " + parseRevertReason(err.message);
+          status.innerText = "⛔ Contract rejected: " + parseRevertReason(err.message);
         } else {
           status.innerText = "❌ Error: " + err.message;
         }
+      }
+    }
+
+    async function sendBackendReward(user, amount) {
+      const res = await fetch("https://tiffyai-wh-wa.onrender.com/reward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: user, amount })
+      });
+      const result = await res.text();
+      if (!res.ok || !result.includes("Prize sent")) {
+        throw new Error("Backend error: " + result);
       }
     }
 
@@ -141,7 +138,7 @@
       }
     }
 
-    function resetBlueKeys() {
+    function resetKeys() {
       const keys = parseInt(localStorage.getItem("tiffyBlueKeys") || "0");
       if (keys >= 10) {
         localStorage.setItem("tiffyBlueKeys", 0);
