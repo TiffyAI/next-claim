@@ -1,84 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>Final Tiffy Claim</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Reward Claim</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-  <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0"></script>
-  <script src="https://unpkg.com/web3modal@1.9.12"></script>
+  <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+  <script src="https://unpkg.com/web3modal@1.9.12/dist/index.js"></script>
   <style>
-    body {background:#000;color:#fff;font-family:'Segoe UI';padding:40px;text-align:center;}
-    button {padding:15px 40px;font-size:18px;background:gold;border:none;border-radius:12px;cursor:pointer;color:#000;}
-    #status {margin-top:20px;color:#0f0;font-size:16px;}
+    body { background: radial-gradient(circle, #000, #111); color: gold; font-family: Segoe UI, sans-serif; text-align: center; padding: 50px; }
+    h1 { font-size: 28px; color: #4af0f8; text-shadow: 0 0 10px #4af0f8; }
+    .message { font-size: 18px; margin-bottom: 30px; color: #ccc; }
+    #claimBtn { padding: 15px 40px; font-size: 20px; font-weight: bold; border: none; border-radius: 15px; background: linear-gradient(90deg, gold, #ffd700, gold); color: black; box-shadow: 0 0 20px gold; cursor: pointer; animation: glow 2s infinite alternate; }
+    @keyframes glow { 0% { box-shadow: 0 0 10px #ffd700; } 100% { box-shadow: 0 0 30px #fffacd; } }
+    #status { margin-top: 20px; font-size: 16px; color: #00ffcc; }
   </style>
 </head>
 <body>
-
-  <h1>Your Final Claim</h1>
-  <button id="claimBtn">💎 CLAIM & GET 10 TIFFY</button>
-  <div id="status">Waiting…</div>
+  <h1>🎁 Claim Your TiffyAI Reward!</h1>
+  <div class="message">Your treasure unlocked 10 TIFFY tokens. Click below to receive them.</div>
+  <button id="claimBtn">Claim Now</button>
+  <div id="status"></div>
 
   <script>
-    const CONTRACT = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
-    const ABI = [
-      { "name":"claim","type":"function","stateMutability":"payable","inputs":[] },
-      { "name":"lastClaimed","type":"function","stateMutability":"view","inputs":[{"type":"address"}],"outputs":[{"type":"uint256"}]}
+    const contractAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5"; // TIFFY Contract
+    const ABI = [ 
+      {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+      {"inputs":[],"name":"claim","outputs":[],"stateMutability":"payable","type":"function"},
+      {"inputs":[],"name":"FIXED_BNB_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
     ];
-    const BACKEND = "https://tiffyai-wh-wa.onrender.com/reward";
 
     const providerOptions = {
       walletconnect: {
         package: window.WalletConnectProvider.default,
-        options: { rpc:{56:"https://bsc-dataseed.binance.org/"}, chainId:56 }
+        options: { rpc: { 56: "https://bsc-dataseed.binance.org/" }, chainId: 56 }
       }
     };
-    const web3Modal = new window.Web3Modal.default({ cacheProvider:false, providerOptions });
-    let web3, provider, account, contract;
 
-    async function work() {
-      const status = document.getElementById('status');
+    const web3Modal = new window.Web3Modal.default({ cacheProvider: false, providerOptions });
+    let web3, provider, user, contract, fixedFee;
+
+    async function setup() {
+      provider = await web3Modal.connect();
+      web3 = new Web3(provider);
+      const net = await web3.eth.net.getId();
+      if (net !== 56) return alert("Please switch to BSC Mainnet.");
+      user = (await web3.eth.getAccounts())[0];
+      contract = new web3.eth.Contract(ABI, contractAddress);
+      fixedFee = await contract.methods.FIXED_BNB_FEE().call();
+      document.getElementById("status").innerText = `Fee: ${web3.utils.fromWei(fixedFee)} BNB`;
+    }
+
+    async function claimReward() {
+      if (!contract) {
+        await setup();
+        if (!contract) return;
+      }
+
       try {
-        provider = await web3Modal.connect();
-        web3 = new Web3(provider);
-        const chain = await web3.eth.net.getId();
-        if (chain !== 56) throw new Error("⛔ Switch to BNB Mainnet");
+        document.getElementById("status").innerText = "⏳ Waiting for network...";
+        await contract.methods.claim()
+                              .send({ from: user, value: fixedFee });
+        document.getElementById("status").innerText = "✅ Claimed 10 TIFFY! Redirecting…";
 
-        const accs = await web3.eth.getAccounts();
-        account = accs[0];
-        contract = new web3.eth.Contract(ABI, CONTRACT);
+        localStorage.setItem('tiffyBlueKeysSpent',
+          (parseInt(localStorage.getItem('tiffyBlueKeysSpent')||0) + 10)
+        );
+        localStorage.setItem('tiffyBlueKeys', 0);
 
-        status.innerText = "Estimating gas…";
-        const gas = await contract.methods.claim().estimateGas({from: account, value:0});
-        const gasPrice = await web3.eth.getGasPrice();
-        const capped = Math.min(parseInt(gasPrice)*1.2, web3.utils.toWei('5','gwei'));
-
-        status.innerText = "Sending claim…";
-        await contract.methods.claim().send({ from: account, gas, gasPrice: capped });
-
-        status.innerText = "✅ Claim ok! Requesting 10 TIFFY…";
-        const response = await fetch(BACKEND, {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ wallet: account, amount:10 })
-        });
-        const res = await response.json().catch(_=>null);
-        if (!response.ok || !res?.success) throw new Error(res?.message || "Backend failed");
-
-        status.innerText = "🎉 Success! Redirecting…";
-        setTimeout(()=>window.location.href="/TiffyAI-Users",1500);
-
+        setTimeout(() => window.location.href = "https://tiffyai.github.io/TiffyAI-Users/", 1500);
       } catch (err) {
-        console.error(err);
-        const m=err.message||err;
-        if (m.includes("insufficient")) {
-          status.innerText="⛽ Not enough BNB for gas. Please top up.";
+        if (err.message.includes("Invalid BNB fee")) {
+          alert("❌ Wrong BNB fee – contact support!");
+        } else if (err.message.includes("insufficient funds")) {
+          alert("⛽ Low BNB gas – please top up your wallet.");
         } else {
-          status.innerText = "❌ " + m;
+          alert("❌ Claim failed: " + err.message);
         }
+        document.getElementById("status").innerText = "Claim failed.";
       }
     }
 
-    document.getElementById('claimBtn').onclick = work;
+    document.getElementById("claimBtn").onclick = claimReward;
   </script>
 </body>
 </html>
