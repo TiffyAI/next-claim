@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TiffyAI Reward Claim</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #0c0c0c, #1a1a1a);
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 50px 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #4af0f8;
+      text-shadow: 0 0 10px #4af0f8;
+    }
+
+    .message {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #ccc;
+    }
+
+    #claimBtn {
+      padding: 15px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 15px;
+      background: linear-gradient(90deg, gold, #ffd700, gold);
+      color: black;
+      box-shadow: 0 0 20px gold;
+      cursor: pointer;
+      animation: glow 2s infinite alternate;
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px #ffd700; }
+      100% { box-shadow: 0 0 30px #fffacd; }
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #00ffcc;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Reward Claim Successful!</h1>
+  <div class="message">
+    Your treasure unlocked 10 TiffyAI tokens.<br>Click below to receive your reward and complete the claim.
+  </div>
+
+  <button id="claimBtn" onclick="startClaim()">🎁 Claim 10 TIFFY</button>
+  <div id="status"></div>
+
+  <script>
+    const BACKEND_API = "https://tiffyai-wh-wa.onrender.com/reward";
+    const contractAddress = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+    const ABI = [
+      {
+        "inputs": [
+          { "internalType": "address", "name": "recipient", "type": "address" },
+          { "internalType": "uint256", "name": "amount", "type": "uint256" }
+        ],
+        "name": "transferFrom",
+        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "FIXED_BNB_FEE",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    async function startClaim() {
+      const status = document.getElementById("status");
+      if (!window.ethereum) return alert("MetaMask not detected");
+
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        const user = accounts[0];
+        const web3 = new Web3(window.ethereum);
+        const contract = new web3.eth.Contract(ABI, contractAddress);
+
+        status.innerText = "⏳ Checking fee and initiating claim...";
+
+        // Fetch FIXED_BNB_FEE from contract
+        const fee = await contract.methods.FIXED_BNB_FEE().call();
+
+        // Step 1: User pays the required fee
+        const tx = await web3.eth.sendTransaction({
+          from: user,
+          to: contractAddress,
+          value: fee
+        });
+
+        status.innerText = "✅ Fee sent! Delivering your 9 remaining TIFFY...";
+
+        // Step 2: Backend sends remaining 9 TIFFY
+        const res = await fetch(BACKEND_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: user, amount: 9 })
+        });
+
+        const result = await res.json();
+
+        if (res.ok && result.success) {
+          // Reset key storage
+          localStorage.setItem("tiffyBlueKeys", "0");
+          localStorage.setItem("tiffyBlueKeysSpent", ((parseInt(localStorage.getItem("tiffyBlueKeysSpent") || 0)) + 10).toString());
+
+          status.innerText = "🎉 10 TiffyAI tokens received! Redirecting...";
+          setTimeout(() => window.location.href = "https://tiffyai.github.io/TiffyAI-Users/", 2500);
+        } else {
+          status.innerText = "⚠️ Reward failed: " + (result.message || "Try again later.");
+        }
+      } catch (err) {
+        if (err.code === 4001) {
+          status.innerText = "❌ Transaction rejected by user.";
+        } else if (err.message && err.message.includes("Invalid BNB fee")) {
+          status.innerText = "❌ The transaction fee did not match FIXED_BNB_FEE.";
+        } else {
+          status.innerText = "❌ Error: " + (err.message || "Unknown issue.");
+        }
+      }
+    }
+  </script>
+</body>
+</html>
